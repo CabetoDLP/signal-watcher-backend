@@ -9,7 +9,7 @@ const start = async () => {
   server.register(app);
 
   try {
-    const address = await server.listen({ port: 3000, host: '0.0.0.0' });
+    const address = await server.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
     server.log.info(`Server running on ${address}`);
   } catch (err) {
     server.log.error(err);
