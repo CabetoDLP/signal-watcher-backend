@@ -49,3 +49,6 @@ Run the test cases.
 ## Learn More
 
 To learn Fastify, check out the [Fastify documentation](https://fastify.dev/docs/latest/).
+
+# signal-watcher-backend
+Aplicación de listas de supervision que almacenan eventos con feedback impulsado por Gemini.
