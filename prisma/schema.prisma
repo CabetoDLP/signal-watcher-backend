@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Watchlist {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events    Event[]
+  
+  @@map("watchlists")
+}
+
+model Event {
+  id          String     @id @default(uuid())
+  watchlist   Watchlist  @relation(fields: [watchlistId], references: [id])
+  watchlistId String
+  description String
+  aiSummary   String?
+  aiSeverity  Severity?
+  aiAction    String?
+  createdAt   DateTime   @default(now())
+  
+  @@index([watchlistId])
+  @@map("events")
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
