@@ -4,7 +4,7 @@ import fastifyHelmet from '@fastify/helmet';
 import { setupRedis } from './lib/redis';
 import watchlistsRoutes from './routes/watchlists';
 import eventsRoutes from './routes/events';
-import crypto from 'crypto';
+import * as crypto from "crypto";
 import { prisma } from './lib/db';
 
 const app: FastifyPluginAsync = async (fastify: FastifyInstance) => {
