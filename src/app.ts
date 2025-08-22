@@ -13,7 +13,7 @@ const app: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   
   // 2. Plugins esenciales
   await fastify.register(fastifyCors, { 
-    origin: process.env.NODE_ENV === 'production' ? /\.dominio\.com$/ : '*'
+    origin: process.env.NODE_ENV === 'production' ? process.env.CORS_ORIGIN : '*'
   });
   await fastify.register(fastifyHelmet);
 

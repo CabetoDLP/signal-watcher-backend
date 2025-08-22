@@ -1,21 +1,34 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+
+// 👇 Puedes cambiar el modelo real si lo necesitas
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash", // Usar versión 1.5 en lugar de 2.5 (la actual)
+  model: "gemini-1.5-flash", 
 });
 
+// ⚡ Si pones MOCK_AI=true en .env, se activa el mock
+const USE_MOCK = process.env.MOCK_AI === "true";
+
 export const analyzeEvent = async (description: string) => {
-  // Prompt mejorado para forzar JSON puro
+  if (USE_MOCK) {
+    // 🔹 Simulación rápida sin llamar a Gemini
+    return {
+      summary: `Evento simulado: ${description}`,
+      severity: "LOW",
+      suggestedAction: "Revisar manualmente"
+    };
+  }
+
   const prompt = `
-  Analiza este evento de seguridad y devuelve SOLAMENTE un JSON válido SIN marcas de código:
+  Analiza este evento de seguridad y devuelve SOLAMENTE un JSON válido:
   Evento: "${description.replace(/"/g, '\\"')}"
 
-  Estructura requerida:
+  Estructura:
   {
-    "summary": "resumen conciso del evento",
+    "summary": "...",
     "severity": "LOW|MEDIUM|HIGH|CRITICAL",
-    "suggestedAction": "acción recomendada"
+    "suggestedAction": "..."
   }
   `;
 
@@ -23,18 +36,15 @@ export const analyzeEvent = async (description: string) => {
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        responseMimeType: "application/json", // Forzar formato JSON
-      },
+        responseMimeType: "application/json"
+      }
     });
 
-    let response = await result.response.text();
-    
-    // Limpieza adicional por si Gemini no obedece
-    response = response.replace(/```json|```/g, '').trim();
-    
+    const response = result.response.text();
     return JSON.parse(response);
-  } catch (error) {
-    console.error("Error al analizar evento:", error);
+
+  } catch (error: any) {
+    console.error("Error al analizar evento:", error?.response || error);
     return {
       summary: "Error en el análisis automático",
       severity: "MEDIUM",
