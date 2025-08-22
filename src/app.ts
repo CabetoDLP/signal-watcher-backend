@@ -13,14 +13,30 @@ const app: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   
   // 2. Plugins esenciales
   await fastify.register(fastifyCors, { 
-    origin: process.env.NODE_ENV === 'production' ? process.env.CORS_ORIGIN : '*'
+    origin: (origin, cb) => {
+      // En producción, solo permitir los orígenes declarados en CORS_ORIGINS
+      if (process.env.NODE_ENV === 'production') {
+        const allowed = (process.env.CORS_ORIGINS || '').split(',');
+        if (!origin || allowed.includes(origin)) {
+          cb(null, true);
+          return;
+        }
+        cb(new Error("Not allowed by CORS"), false);
+      } else {
+        // En dev aceptar todos los orígenes
+        cb(null, true);
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   });
+
   await fastify.register(fastifyHelmet);
 
   // 3. Redis con verificación de conexión
   try {
     await setupRedis(fastify);
-    // Verificación real de conexión
     await fastify.redis.ping();
     fastify.log.info('✅ Redis conectado');
   } catch (err) {
@@ -34,7 +50,7 @@ const app: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     request.id = crypto.randomUUID();
     request.log = request.log.child({ 
       correlationId: request.id,
-      path: request.url // Usa request.url que siempre existe
+      path: request.url
     });
     done();
   });
@@ -54,50 +70,29 @@ const app: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   await fastify.register(watchlistsRoutes, { prefix: '/api/watchlists' });
   await fastify.register(eventsRoutes, { prefix: '/api/events' });
 
-  // 7. Health check mejorado
+  // 7. Health check
   fastify.get('/health', async () => {
     try {
-      // Verificar Redis
       const redisPing = await fastify.redis.ping();
       const redisStatus = redisPing === 'PONG' ? 'connected' : 'unhealthy';
-      
-      // Verificar base de datos usando la instancia singleton de Prisma
       await prisma.$queryRaw`SELECT 1`;
       const dbStatus = 'connected';
       
       return {
         status: 'ok',
-        services: {
-          redis: redisStatus,
-          database: dbStatus,
-        },
+        services: { redis: redisStatus, database: dbStatus },
         system: {
           uptime: process.uptime(),
-          memoryUsage: {
-            rss: process.memoryUsage().rss,
-            heapTotal: process.memoryUsage().heapTotal,
-            heapUsed: process.memoryUsage().heapUsed,
-          },
+          memoryUsage: process.memoryUsage(),
           nodeVersion: process.version,
         },
         timestamp: new Date().toISOString(),
       };
     } catch (error: any) {
       fastify.log.error({ error }, 'Health check failed');
-      
-      // Determinar qué servicio falló
       let failedService = 'unknown';
-      try {
-        await fastify.redis.ping();
-      } catch (e) {
-        failedService = 'redis';
-      }
-      
-      try {
-        await prisma.$queryRaw`SELECT 1`;
-      } catch (e) {
-        failedService = failedService === 'unknown' ? 'database' : 'multiple';
-      }
+      try { await fastify.redis.ping(); } catch { failedService = 'redis'; }
+      try { await prisma.$queryRaw`SELECT 1`; } catch { failedService = failedService === 'unknown' ? 'database' : 'multiple'; }
 
       return {
         status: 'unhealthy',
